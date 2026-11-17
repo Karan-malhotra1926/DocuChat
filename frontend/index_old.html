@@ -1,0 +1,147 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuChat</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: Arial, sans-serif;
+      background: #f4f6ff; color: #202746;
+    }
+    header {
+      padding: 18px 7%; background: white;
+      display: flex; justify-content: space-between;
+      align-items: center; box-shadow: 0 2px 15px #20274610;
+    }
+    header h2 { margin: 0; color: #5146e5; }
+    .layout {
+      max-width: 1000px; margin: 45px auto; padding: 20px;
+    }
+    .card {
+      background: white; border-radius: 20px;
+      padding: 28px; box-shadow: 0 12px 35px #20274612;
+      margin-bottom: 22px;
+    }
+    h1 { margin-top: 0; font-size: 32px; }
+    p { color: #6b7280; line-height: 1.6; }
+    button {
+      background: #5146e5; color: white; border: 0;
+      padding: 12px 18px; border-radius: 10px;
+      cursor: pointer; font-weight: bold;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    #status {
+      margin-top: 18px; padding: 14px;
+      background: #f1f3ff; border-radius: 10px;
+      overflow-wrap: anywhere; white-space: pre-wrap;
+    }
+    .hidden { display: none; }
+    body.dark {
+      background: #111827; color: #f3f4f6;
+    }
+    body.dark header, body.dark .card {
+      background: #1f2937; color: #f3f4f6;
+    }
+    body.dark p { color: #c1c9d8; }
+    body.dark #status { background: #303b52; }
+    @media(max-width:600px) {
+      .layout { margin: 20px auto; }
+      header { padding: 18px; }
+      h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>✦ DocuChat</h2>
+    <button id="themeButton">🌙 Dark mode</button>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <h1>Chat with your documents.</h1>
+      <p>Upload a PDF to extract its text and prepare it for AI-powered question answering.</p>
+
+      <input id="pdfInput" type="file" accept=".pdf,application/pdf">
+      <br><br>
+      <button id="uploadButton">Upload PDF</button>
+
+      <div id="status">Choose a PDF to get started.</div>
+    </section>
+
+    <section class="card hidden" id="resultCard">
+      <h2 id="fileTitle">Uploaded document</h2>
+      <p id="fileInfo"></p>
+      <h3>Extracted text preview</h3>
+      <div id="textPreview"></div>
+    </section>
+  </main>
+
+  <script>
+    const pdfInput = document.getElementById("pdfInput");
+    const uploadButton = document.getElementById("uploadButton");
+    const statusBox = document.getElementById("status");
+
+    uploadButton.addEventListener("click", async () => {
+      const file = pdfInput.files[0];
+
+      if (!file) {
+        statusBox.textContent = "Please choose a PDF first.";
+        return;
+      }
+
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        statusBox.textContent = "Please select a PDF file.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      uploadButton.disabled = true;
+      statusBox.textContent = "Uploading PDF and extracting text...";
+
+      try {
+        const response = await fetch(
+          "http://127.0.0.1:8000/upload",
+          { method: "POST", body: formData }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Upload failed.");
+        }
+
+        document.getElementById("resultCard").classList.remove("hidden");
+        document.getElementById("fileTitle").textContent = data.filename;
+        document.getElementById("fileInfo").textContent =
+          `${data.total_pages} pages · ${data.total_chunks} text chunks`;
+
+        document.getElementById("textPreview").textContent =
+          data.chunks.slice(0, 2).map(chunk =>
+            `Page ${chunk.page}\n${chunk.text}`
+          ).join("\n\n");
+
+        statusBox.textContent = "✅ PDF uploaded successfully!";
+      } catch (error) {
+        statusBox.textContent =
+          "❌ " + error.message +
+          "\nCheck that your FastAPI backend is running.";
+      } finally {
+        uploadButton.disabled = false;
+      }
+    });
+
+    document.getElementById("themeButton").addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+      const dark = document.body.classList.contains("dark");
+      document.getElementById("themeButton").textContent =
+        dark ? "☀️ Light mode" : "🌙 Dark mode";
+    });
+  </script>
+</body>
+</html>
